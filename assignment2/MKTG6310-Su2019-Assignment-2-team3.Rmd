@@ -85,6 +85,86 @@ cat('Different kinds of variables (data types):\n')
 unique(sapply(appHappyLabs, typeof))
 ```
 
+### Sakshi Code
+```{r}
+#Data Creation using Demographic Variables 
+appHappyNu = apphappy.4.num.frame[,c('q1','q48','q49','q50r1','q50r2','q50r3','q50r4','q50r5','q55','q56','q57')] 
+
+#Dependent Variable Creation 
+appHappyNu['onlyFreeApps']=as.numeric(apphappy.4.num.frame$q12>=6)
+table(apphappy.4.num.frame$q12, appHappyNu$onlyFreeApps)
+
+ 
+
+##In my point of view ,Customer Attitude towards the use of Free Apps is subjective and it doesnot show any pattern with the race of the cust.omer ,Hence , q54 doesnot have any such significance .
+set.seed(2143) 
+
+#80-20 Split of Data 
+
+appHappyNu['estSamp']=runif(nrow(appHappyNu),0,1)<=0.80 
+table(appHappyNu$estSamp)/nrow(appHappyNu)
+
+#Creating the binary logistic regression Model(Taking respondent with only free apps as a function of q1 , q48 and q49 (Independent Variables)) 
+
+logModel1=glm(onlyFreeApps~ q1+q48+q49,data=appHappyNu,family=binomial(link=logit)) 
+summary(logModel1)
+
+ 
+
+#Predict Model using logModel1 
+
+predModel1=predict(logModel1,newdata=appHappyNu[appHappyNu$estSamp==FALSE,],type="response") 
+summary(predModel1)
+
+#Predictive Accuracy of the Model 
+
+preds=as.numeric(predModel1>=0.5) 
+table(preds) 
+actuals=appHappyNu[appHappyNu$estSamp==FALSE,c('onlyFreeApps')] 
+table(actuals) 
+100*sum(preds==actuals,na.rm=TRUE)/length(preds)
+
+#Creating binary Probit Regression Model(Taking respondent with only free apps as a function of q1 , q48 and q49 (Independent Variables)) 
+
+logModel2=glm(onlyFreeApps~q1+q48+q49,data=appHappyNu,family=binomial(link=probit)) 
+summary(logModel2)
+
+#Predict Model using logModel2 
+
+predModel2=predict(logModel2,newdata=appHappyNu[appHappyNum$estSamp==FALSE,],type="response") 
+summary(predModel2)
+
+#Predictive accuracy of the Model 
+
+preds=as.numeric(predModel1>=0.5) 
+table(preds)
+
+actuals=appHappyNu[appHappyNu$estSamp==FALSE,c('onlyFreeApps')] 
+table(actuals)
+
+100*sum(preds==actuals,na.rm=TRUE)/length(preds)
+
+## Difference between predictive accuracy perecentage of both models
+
+
+#The predictive accuracy percentage for both the models is 78.90%,The logit and probit models are critical parts of analysing data. We generally use to know that if a covariate has the same effect for different groups, Unfortunately, inorder to compare the effect of covariates across groups ,we make an assumption that each group has the same residual variation. In this case we can compare the coefficients to determine which model is better fit but in this case it reveals that there is no significant difference in coefficients hence, no difference between the models.
+
+ 
+
+#The regression model ( logit and probit ) are used to determine predictive accuracy Respondents only using free apps.
+
+#Respondents only using free apps are taken as a dependent variable is a function of q1 , q48 and q49 as independent variables.
+
+##This means the relation depends on : 1.Age 2. Marital status 3. Education. 
+
+##For Logit and Probit Model give us the following inferences:
+
+#As the age increases Usage of free apps will increase.
+
+#As the education level increases from High school to Post Graduate usage of free app decreases
+```
+
+
 ### Part 2: Post Hoc Descriptive Segmentation Analysis and Profiling  
 
 App Happy wants to segment the market based on customers' _attitudes_.   Questionnaire items q24, q25, and q26 measure various attitudes.  These items were measured using a rating scale called a _Likert_ scale. Note any items that have either very little or relatively large variation.  Also summarize the correlations between these items.  A useful thing to do is to reverse the numerical labels of these items so that larger numbers indicate greater agreement. (People tend to think that larger numbers mean more of something. )

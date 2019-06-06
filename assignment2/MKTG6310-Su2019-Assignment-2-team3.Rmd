@@ -63,7 +63,7 @@ head(appHappyNums,10)
 ```
 
 ```{r}
-
+library(magrittr)
 ```
 
 
@@ -94,9 +94,7 @@ appHappyNu = apphappy.4.num.frame[,c('q1','q48','q49','q50r1','q50r2','q50r3','q
 appHappyNu['onlyFreeApps']=as.numeric(apphappy.4.num.frame$q12>=6)
 table(apphappy.4.num.frame$q12, appHappyNu$onlyFreeApps)
 
- 
-
-##In my point of view ,Customer Attitude towards the use of Free Apps is subjective and it doesnot show any pattern with the race of the cust.omer ,Hence , q54 doesnot have any such significance .
+##Customer Attitude towards the use of Free Apps is subjective and it does not show any pattern with the race of the customer. Hence, q54 does not have any such significance .
 set.seed(2143) 
 
 #80-20 Split of Data 
@@ -104,12 +102,10 @@ set.seed(2143)
 appHappyNu['estSamp']=runif(nrow(appHappyNu),0,1)<=0.80 
 table(appHappyNu$estSamp)/nrow(appHappyNu)
 
-#Creating the binary logistic regression Model(Taking respondent with only free apps as a function of q1 , q48 and q49 (Independent Variables)) 
+#Creating the binary logistic regression Model(Taking respondent with only free apps as a function of q1, q48 and q49 (Independent Variables)) 
 
 logModel1=glm(onlyFreeApps~ q1+q48+q49,data=appHappyNu,family=binomial(link=logit)) 
 summary(logModel1)
-
- 
 
 #Predict Model using logModel1 
 
@@ -124,14 +120,14 @@ actuals=appHappyNu[appHappyNu$estSamp==FALSE,c('onlyFreeApps')]
 table(actuals) 
 100*sum(preds==actuals,na.rm=TRUE)/length(preds)
 
-#Creating binary Probit Regression Model(Taking respondent with only free apps as a function of q1 , q48 and q49 (Independent Variables)) 
+#Creating binary Probit Regression Model(Taking respondent with only free apps as a function of q1, q48 and q49 (Independent Variables)) 
 
 logModel2=glm(onlyFreeApps~q1+q48+q49,data=appHappyNu,family=binomial(link=probit)) 
 summary(logModel2)
 
 #Predict Model using logModel2 
 
-predModel2=predict(logModel2,newdata=appHappyNu[appHappyNum$estSamp==FALSE,],type="response") 
+predModel2=predict(logModel2,newdata=appHappyNu[appHappyNu$estSamp==FALSE,],type="response") 
 summary(predModel2)
 
 #Predictive accuracy of the Model 
@@ -147,21 +143,20 @@ table(actuals)
 ## Difference between predictive accuracy perecentage of both models
 
 
-#The predictive accuracy percentage for both the models is 78.90%,The logit and probit models are critical parts of analysing data. We generally use to know that if a covariate has the same effect for different groups, Unfortunately, inorder to compare the effect of covariates across groups ,we make an assumption that each group has the same residual variation. In this case we can compare the coefficients to determine which model is better fit but in this case it reveals that there is no significant difference in coefficients hence, no difference between the models.
+#The predictive accuracy percentage for both the models is 78.90%. The logit and probit models are critical parts of analysing data. We generally use to know that if a covariate has the same effect for different groups. Unfortunately, in order to compare the effect of covariates across groups, we make an assumption that each group has the same residual variation. In this case, we can compare the coefficients to determine which model is better fitting. In this case, it reveals that there is no significant difference in coefficients; hence, no difference between the models.
 
- 
 
-#The regression model ( logit and probit ) are used to determine predictive accuracy Respondents only using free apps.
+#The regression model ( logit and probit ) are used to determine predictive accuracy for Respondents only using free apps.
 
-#Respondents only using free apps are taken as a dependent variable is a function of q1 , q48 and q49 as independent variables.
+#Respondents only using free apps are taken as a dependent variable is a function of q1, q48 and q49 as independent variables.
 
-##This means the relation depends on : 1.Age 2. Marital status 3. Education. 
+##This means the relation depends on : 1. Age 2. Marital status 3. Education. 
 
 ##For Logit and Probit Model give us the following inferences:
 
-#As the age increases Usage of free apps will increase.
+#As the age increases, Usage of free apps will increase.
 
-#As the education level increases from High school to Post Graduate usage of free app decreases
+#As the education level increases from High school to Post Graduate, usage of free app decreases.
 ```
 
 
@@ -170,6 +165,85 @@ table(actuals)
 App Happy wants to segment the market based on customers' _attitudes_.   Questionnaire items q24, q25, and q26 measure various attitudes.  These items were measured using a rating scale called a _Likert_ scale. Note any items that have either very little or relatively large variation.  Also summarize the correlations between these items.  A useful thing to do is to reverse the numerical labels of these items so that larger numbers indicate greater agreement. (People tend to think that larger numbers mean more of something. )
 
 For your segmentation analysis, do your clustering using the data for the the twelve (12) _attitudinal_ measures in the *q24* question set. Use _one of_ a k-means clustering method,  or a tree-based method hierarchical clustering, to define customer segments.  (You decide which to use.) Use your "best" clustering solution to identify market segments for App Happy. (Your "best" solution is the one with clusters that are well separated, and that lends itself most easily to interpretation.) Describe how each segment uniquely differs from the other segments, and what these differences suggest for App Happy's plan to market the app it is considering.
+
+# Numerical reversal to indicate that larger numbers indicate greater agreement
+
+```{r}
+library(car)
+## not reversing Q24 - r4, r9, and r12 as their valence seems to match the recode
+appHappyNums$q24r1 <- recode(appHappyNums$q24r1, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r2 <- recode(appHappyNums$q24r2, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r3 <- recode(appHappyNums$q24r3, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r5 <- recode(appHappyNums$q24r5, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r6 <- recode(appHappyNums$q24r6, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r7 <- recode(appHappyNums$q24r7, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r8 <- recode(appHappyNums$q24r8, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r10 <- recode(appHappyNums$q24r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r11 <- recode(appHappyNums$q24r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+
+## Not reversing Q25r6 as valence seems to match the recoded variables
+appHappyNums$q25r1 <- recode(appHappyNums$q25r1, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r2 <- recode(appHappyNums$q25r2, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r3 <- recode(appHappyNums$q25r3, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r4 <- recode(appHappyNums$q25r4, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r5 <- recode(appHappyNums$q25r5, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r7 <- recode(appHappyNums$q25r7, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r8 <- recode(appHappyNums$q25r8, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r9 <- recode(appHappyNums$q25r9, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r10 <- recode(appHappyNums$q25r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r11 <- recode(appHappyNums$q25r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r12 <- recode(appHappyNums$q25r12, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+
+## Not reversing Q26r3 as valence seems to match the recoded variables
+appHappyNums$q26r4 <- recode(appHappyNums$q26r4, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r5 <- recode(appHappyNums$q26r5, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r6 <- recode(appHappyNums$q26r6, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r7 <- recode(appHappyNums$q26r7, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r8 <- recode(appHappyNums$q26r8, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r9 <- recode(appHappyNums$q26r9, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r10 <- recode(appHappyNums$q26r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r11 <- recode(appHappyNums$q26r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r12 <- recode(appHappyNums$q26r12, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r13 <- recode(appHappyNums$q26r13, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r14 <- recode(appHappyNums$q26r14, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r15 <- recode(appHappyNums$q26r15, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r16 <- recode(appHappyNums$q26r16, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r17 <- recode(appHappyNums$q26r17, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r18 <- recode(appHappyNums$q26r18, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+
+```
+ 
+#Descriptive data on Q24, Q25, Q26
+```{r}
+var(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")])
+var(appHappyNums[,c("q25r1", "q25r2", "q25r3", "q25r4", "q25r5", "q25r6", "q25r7", "q25r8", "q25r9", "q25r10", "q25r11", "q25r12")])
+var(appHappyNums[,c("q26r3", "q26r4", "q26r5", "q26r6", "q26r7", "q26r8", "q26r9", "q26r10", "q26r11", "q26r12", "q26r13", "q26r14", "q26r15", "q26r16", "q26r17", "q26r18")])
+cor(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")])
+cor(appHappyNums[,c("q25r1", "q25r2", "q25r3", "q25r4", "q25r5", "q25r6", "q25r7", "q25r8", "q25r9", "q25r10", "q25r11", "q25r12")])
+cor(appHappyNums[,c("q26r3", "q26r4", "q26r5", "q26r6", "q26r7", "q26r8", "q26r9", "q26r10", "q26r11", "q26r12", "q26r13", "q26r14", "q26r15", "q26r16", "q26r17", "q26r18")])
+```
+
+#q26r11 demonstrates the most amount of variance, whereas other variables demonstrate less
+
+#K Means clustering method using NBClust
+```{r}
+library(NbClust)
+
+NbClust(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")],min.nc = 2, max.nc = 12, method = "kmeans", index = "gap")
+
+km2=kmeans(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")],2)
+km2
+names(km2)
+
+km2clusters <- by(appHappyNums, km2$cluster, summary)
+names(km2clusters)
+
+plot(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")], col=km2clusters)
+points(km2clusters, col=1:3, pch=8)
+
+```
+
+
 
 ### Part 3: Probability of Using Only Free Apps
 

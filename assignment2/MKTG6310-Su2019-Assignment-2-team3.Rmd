@@ -20,9 +20,25 @@ _Ready everything that follows **carefully**_.
 
 This chunk makes the default directory for a markdown or notebook the same as for the project directory that either one is in.  You may or may not need it, depending on whether you are going to execute anything from this markdown document.
 ```{r setup} 
-#
 # knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
-# 
+```
+
+```{r packages, message = FALSE}
+# install.packages("rmarkdown")
+# install.packages("tidyverse")
+# install.packages("missForest")
+# install.packages("devtools")
+# install.packages("caret")
+# install.packages("NbClust")
+# install.packages("car")
+library(tidyverse)
+library(missForest)
+library(devtools)
+library(caret)
+library(NbClust)
+library(car)
+# devtools::install_url("http://cran.r-project.org/src/contrib/rmarkdown_1.13.tar.gz")
+library(rmarkdown)
 ```
 
 ## Introduction
@@ -58,118 +74,116 @@ appHappyNums <- apphappy.4.num.frame
 ```
 
 ```{r}
-head(appHappyLabs,10)
-head(appHappyNums,10)
+head(appHappyLabs)
+head(appHappyNums)
 ```
-
-```{r}
-library(magrittr)
-```
-
 
 Do an exploratory analysis of App Happy's data, paying particular attention to the variables you'll use in the analyses described below. "EDA" is the usual preliminary, important step in any analysis effort. Note in particular any missing values, anomalous codes, and so on.
 
 ```{r}
+cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
+cat('Number of variables (columns):', ncol(appHappyNums), '\n')
+```
+
+#### Dealing with NAs
+
+```{r}
+cat('Count of NAs by column:\n')
 naCounts <- appHappyNums %>% is.na %>% colSums
-naCounts
-cat('\n')
+# naCounts
+# cat('\n')
+naCounts[naCounts>0]
+```
+
+##### Drop observations w/ NA in q12
+
+```{r}
+appHappyNums <- appHappyNums[!is.na(appHappyNums$q12),]
+```
+
+```{r}
+# Confirm q12 NAs are gone
+cat('Count of NAs by column:\n')
+naCounts <- appHappyNums %>% is.na %>% colSums
+# naCounts
+# cat('\n')
 naCounts[naCounts>0]
 ```
 
 ```{r}
-cat('Number of records (rows, observations):\n')
-nrow(appHappyLabs)
-cat('Number of variables:\n')
-ncol(appHappyLabs)
-cat('Different kinds of variables (data types):\n')
-unique(sapply(appHappyLabs, typeof))
+# Confirm number of rows was reduced by number of NAs in q12 and number of columns matches original
+cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
+cat('Number of variables (columns):', ncol(appHappyNums), '\n')
 ```
 
-### Sakshi Code
+##### Impute values for NAs in q57
+
 ```{r}
-#Data Creation using Demographic Variables 
-appHappyNu = apphappy.4.num.frame[,c('q1','q48','q49','q50r1','q50r2','q50r3','q50r4','q50r5','q55','q56','q57')] 
+# impute missing values for observations with NA in q57
+set.seed(123)
+appHappyNums[, -1] <- lapply(appHappyNums[, -1], factor) #casting all non-ID columns to factors for imputation
+appHappyNumsImp <- appHappyNums %>% dplyr::select(-c(q5r1)) # add all but columns with NAs that we'll keep to new dataframe for imputation
+appHappyNums <- appHappyNums %>% dplyr::select(c(caseID,q5r1)) # save columns w/ NAs for joining back to imputed data
+appHappyNumsImp <- missForest(appHappyNumsImp)$ximp # impute missing data in q57
+appHappyNums <- merge(appHappyNums, appHappyNumsImp, by="caseID") # join data back together
+appHappyNums[, -1] <- lapply(appHappyNums[, -1], as.integer) #casting all non-ID columns to numeric
+```
+```{r}
+# Confirm number of rows matches post-q12 NA drop and number of columns matches original
+cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
+cat('Number of variables (columns):', ncol(appHappyNums), '\n')
+```
 
-#Dependent Variable Creation 
-appHappyNu['onlyFreeApps']=as.numeric(apphappy.4.num.frame$q12>=6)
-table(apphappy.4.num.frame$q12, appHappyNu$onlyFreeApps)
+```{r}
+# Confirm q57 NAs are gone
+cat('Count of NAs by column:\n')
+naCounts <- appHappyNums %>% is.na %>% colSums
+# naCounts
+# cat('\n')
+naCounts[naCounts>0]
+```
 
-##Customer Attitude towards the use of Free Apps is subjective and it does not show any pattern with the race of the customer. Hence, q54 does not have any such significance .
-set.seed(2143) 
+##### Drop Entire q5r1 Column
 
-#80-20 Split of Data 
+NAs in q5r1 are expected and are simply respondents that did not select "other" for q4
 
-appHappyNu['estSamp']=runif(nrow(appHappyNu),0,1)<=0.80 
-table(appHappyNu$estSamp)/nrow(appHappyNu)
+```{r}
+appHappyNums <- appHappyNums %>% dplyr::select(-c(q5r1))
+```
 
-#Creating the binary logistic regression Model(Taking respondent with only free apps as a function of q1, q48 and q49 (Independent Variables)) 
+```{r}
+# Confirm number of rows matches post-q12 NA drop and number of columns is reduced by 1
+cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
+cat('Number of variables (columns):', ncol(appHappyNums), '\n')
+```
 
-logModel1=glm(onlyFreeApps~ q1+q48+q49,data=appHappyNu,family=binomial(link=logit)) 
-summary(logModel1)
+```{r}
+# Confirm no NAs remain
+cat('Count of NAs by column:\n')
+naCounts <- appHappyNums %>% is.na %>% colSums
+# naCounts
+# cat('\n')
+naCounts[naCounts>0]
+```
 
-#Predict Model using logModel1 
+#### Dependant Variable Creation
 
-predModel1=predict(logModel1,newdata=appHappyNu[appHappyNu$estSamp==FALSE,],type="response") 
-summary(predModel1)
-
-#Predictive Accuracy of the Model 
-
-preds=as.numeric(predModel1>=0.5) 
-table(preds) 
-actuals=appHappyNu[appHappyNu$estSamp==FALSE,c('onlyFreeApps')] 
-table(actuals) 
-100*sum(preds==actuals,na.rm=TRUE)/length(preds)
-
-#Creating binary Probit Regression Model(Taking respondent with only free apps as a function of q1, q48 and q49 (Independent Variables)) 
-
-logModel2=glm(onlyFreeApps~q1+q48+q49,data=appHappyNu,family=binomial(link=probit)) 
-summary(logModel2)
-
-#Predict Model using logModel2 
-
-predModel2=predict(logModel2,newdata=appHappyNu[appHappyNu$estSamp==FALSE,],type="response") 
-summary(predModel2)
-
-#Predictive accuracy of the Model 
-
-preds=as.numeric(predModel1>=0.5) 
-table(preds)
-
-actuals=appHappyNu[appHappyNu$estSamp==FALSE,c('onlyFreeApps')] 
-table(actuals)
-
-100*sum(preds==actuals,na.rm=TRUE)/length(preds)
-
-## Difference between predictive accuracy perecentage of both models
-
-
-#The predictive accuracy percentage for both the models is 78.90%. The logit and probit models are critical parts of analysing data. We generally use to know that if a covariate has the same effect for different groups. Unfortunately, in order to compare the effect of covariates across groups, we make an assumption that each group has the same residual variation. In this case, we can compare the coefficients to determine which model is better fitting. In this case, it reveals that there is no significant difference in coefficients; hence, no difference between the models.
-
-
-#The regression model ( logit and probit ) are used to determine predictive accuracy for Respondents only using free apps.
-
-#Respondents only using free apps are taken as a dependent variable is a function of q1, q48 and q49 as independent variables.
-
-##This means the relation depends on : 1. Age 2. Marital status 3. Education. 
-
-##For Logit and Probit Model give us the following inferences:
-
-#As the age increases, Usage of free apps will increase.
-
-#As the education level increases from High school to Post Graduate, usage of free app decreases.
+```{r}
+appHappyNums$onlyFreeApps <- as.numeric(appHappyNums$q12==6)
 ```
 
 
-### Part 2: Post Hoc Descriptive Segmentation Analysis and Profiling  
+```{r}
+# Confirm number of columns is increased by 1
+cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
+cat('Number of variables (columns):', ncol(appHappyNums), '\n')
+```
 
-App Happy wants to segment the market based on customers' _attitudes_.   Questionnaire items q24, q25, and q26 measure various attitudes.  These items were measured using a rating scale called a _Likert_ scale. Note any items that have either very little or relatively large variation.  Also summarize the correlations between these items.  A useful thing to do is to reverse the numerical labels of these items so that larger numbers indicate greater agreement. (People tend to think that larger numbers mean more of something. )
+#### Recoding Likert Responses 
 
-For your segmentation analysis, do your clustering using the data for the the twelve (12) _attitudinal_ measures in the *q24* question set. Use _one of_ a k-means clustering method,  or a tree-based method hierarchical clustering, to define customer segments.  (You decide which to use.) Use your "best" clustering solution to identify market segments for App Happy. (Your "best" solution is the one with clusters that are well separated, and that lends itself most easily to interpretation.) Describe how each segment uniquely differs from the other segments, and what these differences suggest for App Happy's plan to market the app it is considering.
-
-# Numerical reversal to indicate that larger numbers indicate greater agreement
+Numerical reversal to indicate that larger numbers indicate greater agreement
 
 ```{r}
-library(car)
 ## not reversing Q24 - r4, r9, and r12 as their valence seems to match the recode
 appHappyNums$q24r1 <- recode(appHappyNums$q24r1, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q24r2 <- recode(appHappyNums$q24r2, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
@@ -180,7 +194,9 @@ appHappyNums$q24r7 <- recode(appHappyNums$q24r7, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q24r8 <- recode(appHappyNums$q24r8, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q24r10 <- recode(appHappyNums$q24r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q24r11 <- recode(appHappyNums$q24r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+```
 
+```{r}
 ## Not reversing Q25r6 as valence seems to match the recoded variables
 appHappyNums$q25r1 <- recode(appHappyNums$q25r1, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q25r2 <- recode(appHappyNums$q25r2, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
@@ -193,7 +209,9 @@ appHappyNums$q25r9 <- recode(appHappyNums$q25r9, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q25r10 <- recode(appHappyNums$q25r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q25r11 <- recode(appHappyNums$q25r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q25r12 <- recode(appHappyNums$q25r12, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+```
 
+```{r}
 ## Not reversing Q26r3 as valence seems to match the recoded variables
 appHappyNums$q26r4 <- recode(appHappyNums$q26r4, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q26r5 <- recode(appHappyNums$q26r5, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
@@ -210,50 +228,135 @@ appHappyNums$q26r15 <- recode(appHappyNums$q26r15, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1
 appHappyNums$q26r16 <- recode(appHappyNums$q26r16, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q26r17 <- recode(appHappyNums$q26r17, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
 appHappyNums$q26r18 <- recode(appHappyNums$q26r18, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-
 ```
- 
-#Descriptive data on Q24, Q25, Q26
+
+#### Train/Test Split of the Data
+
+```{r}
+#80-20 Split of Data
+set.seed(123)
+appHappyNumsTrain <- appHappyNums %>% dplyr::sample_frac(.8)
+appHappyNumsTest  <- dplyr::anti_join(appHappyNums, appHappyNumsTrain, by = 'caseID')
+cat('Number of rows in train dataframe:   ',nrow(appHappyNumsTrain),'\n')
+cat('Number of rows in test dataframe:     ',nrow(appHappyNumsTest),'\n')
+cat('Number of rows in original dataframe:',nrow(appHappyNums))
+```
+
+### Part 2: Post Hoc Descriptive Segmentation Analysis and Profiling  
+
+App Happy wants to segment the market based on customers' _attitudes_.   Questionnaire items q24, q25, and q26 measure various attitudes.  These items were measured using a rating scale called a _Likert_ scale. Note any items that have either very little or relatively large variation.  Also summarize the correlations between these items.  A useful thing to do is to reverse the numerical labels of these items so that larger numbers indicate greater agreement. (People tend to think that larger numbers mean more of something. )
+
+For your segmentation analysis, do your clustering using the data for the the twelve (12) _attitudinal_ measures in the *q24* question set. Use _one of_ a k-means clustering method,  or a tree-based method hierarchical clustering, to define customer segments.  (You decide which to use.) Use your "best" clustering solution to identify market segments for App Happy. (Your "best" solution is the one with clusters that are well separated, and that lends itself most easily to interpretation.) Describe how each segment uniquely differs from the other segments, and what these differences suggest for App Happy's plan to market the app it is considering.
+
+#### Descriptive data on Q24, Q25, Q26
+
 ```{r}
 var(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")])
 var(appHappyNums[,c("q25r1", "q25r2", "q25r3", "q25r4", "q25r5", "q25r6", "q25r7", "q25r8", "q25r9", "q25r10", "q25r11", "q25r12")])
 var(appHappyNums[,c("q26r3", "q26r4", "q26r5", "q26r6", "q26r7", "q26r8", "q26r9", "q26r10", "q26r11", "q26r12", "q26r13", "q26r14", "q26r15", "q26r16", "q26r17", "q26r18")])
+```
+
+```{r}
 cor(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")])
 cor(appHappyNums[,c("q25r1", "q25r2", "q25r3", "q25r4", "q25r5", "q25r6", "q25r7", "q25r8", "q25r9", "q25r10", "q25r11", "q25r12")])
 cor(appHappyNums[,c("q26r3", "q26r4", "q26r5", "q26r6", "q26r7", "q26r8", "q26r9", "q26r10", "q26r11", "q26r12", "q26r13", "q26r14", "q26r15", "q26r16", "q26r17", "q26r18")])
 ```
 
-#q26r11 demonstrates the most amount of variance, whereas other variables demonstrate less
+q26r11 demonstrates the most amount of variance, whereas other variables demonstrate less
 
-#K Means clustering method using NBClust
-```{r}
-library(NbClust)
+#### K Means clustering method using NBClust
 
-NbClust(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")],min.nc = 2, max.nc = 12, method = "kmeans", index = "gap")
-
-km2 <- kmeans(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")],2)
-km2
-names(km2)
-
-km2clusters <- by(appHappyNums, km2$cluster, summary)
-names(km2clusters)
-
-plot(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")], col=km2clusters)
-points(km2clusters, col=1:3, pch=8)
-
+```{r, warning=F}
+NbClust(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")], min.nc = 2, max.nc = 12, method = "kmeans", index = "gap")
 ```
 
+```{r, warning=F}
+km2 <- kmeans(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")], 2)
+km2
+```
+
+```{r}
+names(km2)
+```
+
+```{r}
+km2clusters <- by(appHappyNums, km2$cluster, summary)
+names(km2clusters)
+```
+
+```{r}
+plot(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")], col=km2clusters)
+```
+
+```{r, warning=F}
+points(km2clusters, col=1:3, pch=8)
+```
 
 
 ### Part 3: Probability of Using Only Free Apps
 
-App Happy wants you to estimate models that predict whether a respondent _only_ uses free apps. This is indicated by the data of variable q12. Create a new binary dependent variable called `onlyFreeApps` that has a value of 1 if the value of variable q12 equals 6, and is 0 if q12 equals 1,2,3,4 or 5. Be sure to take into account any missing data or incorrectly coded values.   _Randomly_ split the data into a model estimation sample and a model test sample, 80% estimation, and 20% test.  Use the estimation sample to estimate _either_ a binary logistic regression model, _or_ a binary probit regression model. For either type of model, use the _demographic_ variables in the survey data as predictor variables.  These are variables q1, and q48 through q57, but omit variable q54. (Why might a company omit q54 from its analyses?)
+App Happy wants you to estimate models that predict whether a respondent _only_ uses free apps. This is indicated by the data of variable q12. Create a new binary dependent variable called `onlyFreeApps` that has a value of 1 if the value of variable q12 equals 6, and is 0 if q12 equals 1,2,3,4 or 5. Be sure to take into account any missing data or incorrectly coded values.   
+
+_Randomly_ split the data into a model estimation sample and a model test sample, 80% estimation, and 20% test.  Use the estimation sample to estimate _either_ a binary logistic regression model, _or_ a binary probit regression model. For either type of model, use the _demographic_ variables in the survey data as predictor variables.  These are variables q1, and q48 through q57, but omit variable q54. (Why might a company omit q54 from its analyses?)
 
 For the best of the type of model you chose to use, calculate its _predictive accuracy_ in terms of percent correct prediction of responses, for both the estimation data and for the test data.  (Question: what do differences between the two tell you about your model?).  
 
 Your "best" model should only include predictors that are statistically significant at the conventional level, a Type I error rate of 0.05, and whose accuracy doesn't decrease much (or at all) when it is used to predict `onlyFreeApps` using the held out, 20% test data.
 
 Interpret your best model's results for App Happy.  Mention any assumptions that you think might be important to for Appy Happy to consider when interpreting your model's results.
+
+#### Binary Logit Regression Model
+```{r}
+#Creating the binary logistic regression Model(Taking respondent with only free apps as a function of q1, q48 and q49 (Independent Variables))
+logModel1=glm(onlyFreeApps~ q1+q48+q49,data=appHappyNumsTrain,family=binomial(link=logit)) 
+summary(logModel1)
+
+#Predict Model using logModel1
+predModel1=predict(logModel1,newdata=appHappyNumsTest,type="response") 
+summary(predModel1)
+
+#Predictive Accuracy of the Model
+preds=as.numeric(predModel1>=0.5) 
+table(preds) 
+actuals=appHappyNumsTest['onlyFreeApps'] 
+table(actuals) 
+100*sum(preds==actuals,na.rm=TRUE)/length(preds)
+```
+
+#### Binary Probit Regression Model
+```{r}
+#Creating binary Probit Regression Model(Taking respondent with only free apps as a function of q1, q48 and q49 (Independent Variables))
+logModel2=glm(onlyFreeApps~q1+q48+q49,data=appHappyNumsTrain,family=binomial(link=probit)) 
+summary(logModel2)
+
+#Predict Model using logModel2
+predModel2=predict(logModel2,newdata=appHappyNumsTest,type="response") 
+summary(predModel2)
+
+#Predictive accuracy of the Model
+preds=as.numeric(predModel1>=0.5) 
+table(preds)
+
+actuals=appHappyNumsTest['onlyFreeApps'] 
+table(actuals)
+
+100*sum(preds==actuals,na.rm=TRUE)/length(preds)
+```
+
+#### Difference between predictive accuracy perecentage of both models
+
+The predictive accuracy percentage for both the models is 78.90%,The logit and probit models are critical parts of analysing data. We generally use to know that if a covariate has the same effect for different groups, Unfortunately, inorder to compare the effect of covariates across groups ,we make an assumption that each group has the same residual variation. In this case we can compare the coefficients to determine which model is better fit but in this case it reveals that there is no significant difference in coefficients hence, no difference between the models.
+
+The regression model ( logit and probit ) are used to determine predictive accuracy Respondents only using free apps.
+
+Respondents only using free apps are taken as a dependent variable is a function of q1 , q48 and q49 as independent variables. This means the relation depends on: 
+1. Age 
+2. Marital status 
+3. Education. 
+
+For Logit and Probit Model give us the following inferences:
+* As the age increases Usage of free apps will increase.
+* As the education level increases from High school to Post Graduate usage of free app decreases
 
 ### Part 4: Post Hoc Predictive Segmentation Analysis
 

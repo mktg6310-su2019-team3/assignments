@@ -1,29 +1,17 @@
 ---
-title: 'MKTG6310-090 Su2019 Assignment 2 Segmenting for a Social Entertainment App v2'
-author: "Lynd Bacon, lynd.bacon@hsc.utah.edu"
+title: 'Segmenting for a Social Entertainment App'
+subtitle: 'MKTG6310-090 Su2019 Assignment 2'
+author: 'Assignment Team 3: Tianyu Xu, Sakshi Vig, Justin Peterson, Richard Mohlman, Steve Lucero, Kris Clegg'
 output:
   html_notebook:
     toc: yes
   pdf_document:
     toc: no
   html_document:
-    toc: yes
+    toc: no
 ---
 
-Creative Commons CC by 4.0 Lynd Bacon & Associates, Ltd.  Not warranteed to be suitable for any particular purpose. (You're on your own!)
-
----
-
-_Ready everything that follows **carefully**_. 
-
-**Set Ups?**
-
-This chunk makes the default directory for a markdown or notebook the same as for the project directory that either one is in.  You may or may not need it, depending on whether you are going to execute anything from this markdown document.
-```{r setup} 
-# knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
-```
-
-```{r packages, message = FALSE}
+```{r packages, message=FALSE, include=FALSE}
 # install.packages("rmarkdown")
 # install.packages("tidyverse")
 # install.packages("missForest")
@@ -31,37 +19,45 @@ This chunk makes the default directory for a markdown or notebook the same as fo
 # install.packages("caret")
 # install.packages("NbClust")
 # install.packages("car")
-library(tidyverse)
-library(missForest)
+# install.packages("corrplot")
 library(devtools)
-library(caret)
-library(NbClust)
-library(car)
 # devtools::install_url("http://cran.r-project.org/src/contrib/rmarkdown_1.13.tar.gz")
 library(rmarkdown)
 ```
 
-## Introduction
+## R Setup 
 
-Many organizations collect data from their customers and stakeholders to understand their perceptions and preferences.  A venerable business adage is "Know Your Customers," or "KYC" for short.
+In the course of our analysis we leveraged the following R packages and libraries:
 
-The App Happy Company wants to better understand what they believe is the market for a new social entertainment app.  They are currently in the business of providing B2B analytic apps, and they don't yet have a product in the consumer entertainment app category.  A "social entertainment app" is a smart phone or tablet application that  a customer can use to consume media, and to share media content and their opinions about it with people they know.
+```{r libraries, message=FALSE}
+library(tidyverse)
+library(missForest)
+library(caret)
+library(NbClust)
+library(car)
+library(corrplot)
+library(cluster)
+```
 
-App Happy hired the Consumer Spy Corporation (CSC) to survey consumers in the market of interest.  CSC collected data from a sample of consumers, and provided App Happy with a dataset of their responses.  The survey questionnaire (see the data dictionary in the file _apphappy-survey-questionnaire-dictionary-2019.pdf_) was based on preliminary qualitative research that included focus groups and one-on-one interviews.  The data collected by CSC are in the R data file _appHappyData-2019.RData_.
+## The App Happy Challenge
 
-## Your Assignment 2 Objective
+General Consensus at App Happy, is that there is a market for a new social entertainment app. However, App Happy currently only operates Apps in the B2B analytics cateogry and don't yet have a product in the consumer entertainment app category.
 
-Help App Happy get to know the potential customers for its app, better.
+App Happy hired the Consumer Spy Corporation (CSC) to survey consumers in the entertainment app market. CSC collected data from a sample of consumers, and provided App Happy with a dataset of their responses. The survey questionnaire (see the data dictionary in the file _apphappy-survey-questionnaire-dictionary-2019.pdf_) was based on preliminary qualitative research that included focus groups and one-on-one interviews.  The data collected by CSC are in the R data file _appHappyData-2019.RData_.
 
-App Happy needs you to inform their new product strategy and tactics by developing and describing market segments. You'll do this by performing two types of segmentation analysis:  _descriptive post hoc segmentation analysis_, and _predictive post hoc segmentation analysis_.  You'll also help them to better understand which respondents are using only free apps by predicting it using demographic variables.
+Below we will perform a number of market segmentation analyses to explore this possible market opportunity and inform potential new product strategy and tactics including:
+* descriptive post hoc segmentation analysis (a partitioning clustering method (k-means), or a hierarchical clustering method)
+* predictive post hoc segmentation analysis (finite mixture regression, also called clusterwise regression, or latent class regression)
 
-For your descriptive segmentation analysis, you'll use _one_ of two approaches, a partitioning clustering method (k-means), or a hierarchical clustering method.  You'll use finite mixture regression, also called clusterwise regression, or latent class regression, for the predictive segmentation analysis.  In the case of each kind of analysis you'll profile (describe) the segments you identify, and you'll interpret your results for App Happy.  You'll apply either a binary logistic regression model or a binary probit regression model to predct the use of only free apps.
+You'll also help them to better understand which respondents are using only free apps by predicting it using demographic variables.
 
-Do your work using R, and assemble it in an R Notebook.  Submit both your Notebook (.Rmd) and a pdf version of it on Canvas. Details follow.
+For each analysis we will:
+* profile (describe) the segments we identify
+* interpret our results
 
-## What To Do
+We'll also apply either a binary logistic regression model or a binary probit regression model to predct the use of only free apps.
 
-### Part 1: Load the Data, Munge It, Do Some EDA
+## Part 1: Load the Data, Munge It, Do Some EDA
 
 __Two data.frames in one__. Load the RData file into R.  In it you'll find two data.frames.  Both have the same variables, but one has numeric codes for the survey responses, and the other has the _character strings_ that labelled the response alternatives in the questionnaire.  
 
@@ -85,7 +81,76 @@ cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
 cat('Number of variables (columns):', ncol(appHappyNums), '\n')
 ```
 
-#### Dealing with NAs
+### Dependant Variable Creation
+
+```{r}
+appHappyNums$onlyFreeApps <- as.numeric(appHappyNums$q12==6)
+```
+
+```{r}
+# Confirm number of columns is increased by 1
+cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
+cat('Number of variables (columns):', ncol(appHappyNums), '\n')
+```
+
+### Recoding Likert Responses 
+
+Numerical reversal to adjust scales so that larger numbers indicate greater agreement.
+
+#### Question 24
+
+```{r}
+## not reversing Q24 - r4, r9, and r12 as their valence seems to match the recode
+appHappyNums$q24r1 <- recode(appHappyNums$q24r1, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r2 <- recode(appHappyNums$q24r2, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r3 <- recode(appHappyNums$q24r3, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r5 <- recode(appHappyNums$q24r5, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r6 <- recode(appHappyNums$q24r6, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r7 <- recode(appHappyNums$q24r7, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r8 <- recode(appHappyNums$q24r8, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r10 <- recode(appHappyNums$q24r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q24r11 <- recode(appHappyNums$q24r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+```
+
+#### Question 25
+
+```{r}
+## Not reversing Q25r6 as valence seems to match the recoded variables
+appHappyNums$q25r1 <- recode(appHappyNums$q25r1, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r2 <- recode(appHappyNums$q25r2, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r3 <- recode(appHappyNums$q25r3, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r4 <- recode(appHappyNums$q25r4, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r5 <- recode(appHappyNums$q25r5, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r7 <- recode(appHappyNums$q25r7, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r8 <- recode(appHappyNums$q25r8, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r9 <- recode(appHappyNums$q25r9, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r10 <- recode(appHappyNums$q25r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r11 <- recode(appHappyNums$q25r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q25r12 <- recode(appHappyNums$q25r12, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+```
+
+#### Question 26
+
+```{r}
+## Not reversing Q26r3 as valence seems to match the recoded variables
+appHappyNums$q26r4 <- recode(appHappyNums$q26r4, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r5 <- recode(appHappyNums$q26r5, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r6 <- recode(appHappyNums$q26r6, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r7 <- recode(appHappyNums$q26r7, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r8 <- recode(appHappyNums$q26r8, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r9 <- recode(appHappyNums$q26r9, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r10 <- recode(appHappyNums$q26r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r11 <- recode(appHappyNums$q26r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r12 <- recode(appHappyNums$q26r12, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r13 <- recode(appHappyNums$q26r13, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r14 <- recode(appHappyNums$q26r14, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r15 <- recode(appHappyNums$q26r15, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r16 <- recode(appHappyNums$q26r16, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r17 <- recode(appHappyNums$q26r17, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+appHappyNums$q26r18 <- recode(appHappyNums$q26r18, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
+```
+
+### Dealing with NAs
 
 ```{r}
 cat('Count of NAs by column:\n')
@@ -95,14 +160,14 @@ naCounts <- appHappyNums %>% is.na %>% colSums
 naCounts[naCounts>0]
 ```
 
-##### Drop observations w/ NA in q12
+#### Drop observations w/ NA in q12
 
 ```{r}
 appHappyNums <- appHappyNums[!is.na(appHappyNums$q12),]
 ```
 
 ```{r}
-# Confirm q12 NAs are gone
+# Confirm q12 NAs (aligned to onlyFreeApps NAs) are both gone
 cat('Count of NAs by column:\n')
 naCounts <- appHappyNums %>% is.na %>% colSums
 # naCounts
@@ -111,12 +176,12 @@ naCounts[naCounts>0]
 ```
 
 ```{r}
-# Confirm number of rows was reduced by number of NAs in q12 and number of columns matches original
+# Confirm number of rows was reduced by number of NAs in q12 and number of columns matches original + 1 (onlyFreeApps)
 cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
 cat('Number of variables (columns):', ncol(appHappyNums), '\n')
 ```
 
-##### Impute values for NAs in q57
+#### Impute values for NAs in q57
 
 ```{r}
 # impute missing values for observations with NA in q57
@@ -128,11 +193,6 @@ appHappyNumsImp <- missForest(appHappyNumsImp)$ximp # impute missing data in q57
 appHappyNums <- merge(appHappyNums, appHappyNumsImp, by="caseID") # join data back together
 appHappyNums[, -1] <- lapply(appHappyNums[, -1], as.integer) #casting all non-ID columns to numeric
 ```
-```{r}
-# Confirm number of rows matches post-q12 NA drop and number of columns matches original
-cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
-cat('Number of variables (columns):', ncol(appHappyNums), '\n')
-```
 
 ```{r}
 # Confirm q57 NAs are gone
@@ -143,7 +203,7 @@ naCounts <- appHappyNums %>% is.na %>% colSums
 naCounts[naCounts>0]
 ```
 
-##### Drop Entire q5r1 Column
+#### Drop Entire q5r1 Column
 
 NAs in q5r1 are expected and are simply respondents that did not select "other" for q4
 
@@ -166,71 +226,7 @@ naCounts <- appHappyNums %>% is.na %>% colSums
 naCounts[naCounts>0]
 ```
 
-#### Dependant Variable Creation
-
-```{r}
-appHappyNums$onlyFreeApps <- as.numeric(appHappyNums$q12==6)
-```
-
-
-```{r}
-# Confirm number of columns is increased by 1
-cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
-cat('Number of variables (columns):', ncol(appHappyNums), '\n')
-```
-
-#### Recoding Likert Responses 
-
-Numerical reversal to indicate that larger numbers indicate greater agreement
-
-```{r}
-## not reversing Q24 - r4, r9, and r12 as their valence seems to match the recode
-appHappyNums$q24r1 <- recode(appHappyNums$q24r1, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q24r2 <- recode(appHappyNums$q24r2, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q24r3 <- recode(appHappyNums$q24r3, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q24r5 <- recode(appHappyNums$q24r5, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q24r6 <- recode(appHappyNums$q24r6, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q24r7 <- recode(appHappyNums$q24r7, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q24r8 <- recode(appHappyNums$q24r8, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q24r10 <- recode(appHappyNums$q24r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q24r11 <- recode(appHappyNums$q24r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-```
-
-```{r}
-## Not reversing Q25r6 as valence seems to match the recoded variables
-appHappyNums$q25r1 <- recode(appHappyNums$q25r1, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q25r2 <- recode(appHappyNums$q25r2, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q25r3 <- recode(appHappyNums$q25r3, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q25r4 <- recode(appHappyNums$q25r4, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q25r5 <- recode(appHappyNums$q25r5, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q25r7 <- recode(appHappyNums$q25r7, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q25r8 <- recode(appHappyNums$q25r8, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q25r9 <- recode(appHappyNums$q25r9, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q25r10 <- recode(appHappyNums$q25r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q25r11 <- recode(appHappyNums$q25r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q25r12 <- recode(appHappyNums$q25r12, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-```
-
-```{r}
-## Not reversing Q26r3 as valence seems to match the recoded variables
-appHappyNums$q26r4 <- recode(appHappyNums$q26r4, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r5 <- recode(appHappyNums$q26r5, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r6 <- recode(appHappyNums$q26r6, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r7 <- recode(appHappyNums$q26r7, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r8 <- recode(appHappyNums$q26r8, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r9 <- recode(appHappyNums$q26r9, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r10 <- recode(appHappyNums$q26r10, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r11 <- recode(appHappyNums$q26r11, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r12 <- recode(appHappyNums$q26r12, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r13 <- recode(appHappyNums$q26r13, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r14 <- recode(appHappyNums$q26r14, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r15 <- recode(appHappyNums$q26r15, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r16 <- recode(appHappyNums$q26r16, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r17 <- recode(appHappyNums$q26r17, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-appHappyNums$q26r18 <- recode(appHappyNums$q26r18, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1")
-```
-
-#### Train/Test Split of the Data
+### Train/Test Split of the Data
 
 ```{r}
 #80-20 Split of Data
@@ -242,56 +238,161 @@ cat('Number of rows in test dataframe:     ',nrow(appHappyNumsTest),'\n')
 cat('Number of rows in original dataframe:',nrow(appHappyNums))
 ```
 
-### Part 2: Post Hoc Descriptive Segmentation Analysis and Profiling  
+## Part 2: Post Hoc Descriptive Segmentation Analysis and Profiling  
 
-App Happy wants to segment the market based on customers' _attitudes_.   Questionnaire items q24, q25, and q26 measure various attitudes.  These items were measured using a rating scale called a _Likert_ scale. Note any items that have either very little or relatively large variation.  Also summarize the correlations between these items.  A useful thing to do is to reverse the numerical labels of these items so that larger numbers indicate greater agreement. (People tend to think that larger numbers mean more of something. )
-
-For your segmentation analysis, do your clustering using the data for the the twelve (12) _attitudinal_ measures in the *q24* question set. Use _one of_ a k-means clustering method,  or a tree-based method hierarchical clustering, to define customer segments.  (You decide which to use.) Use your "best" clustering solution to identify market segments for App Happy. (Your "best" solution is the one with clusters that are well separated, and that lends itself most easily to interpretation.) Describe how each segment uniquely differs from the other segments, and what these differences suggest for App Happy's plan to market the app it is considering.
-
-#### Descriptive data on Q24, Q25, Q26
+App Happy wants to segment the market based on customers' _attitudes_.   Questionnaire items q24, q25, and q26 measure various attitudes. We will begin by creating new datasets to evaluate these questionnaire items.   
 
 ```{r}
-var(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")])
-var(appHappyNums[,c("q25r1", "q25r2", "q25r3", "q25r4", "q25r5", "q25r6", "q25r7", "q25r8", "q25r9", "q25r10", "q25r11", "q25r12")])
-var(appHappyNums[,c("q26r3", "q26r4", "q26r5", "q26r6", "q26r7", "q26r8", "q26r9", "q26r10", "q26r11", "q26r12", "q26r13", "q26r14", "q26r15", "q26r16", "q26r17", "q26r18")])
+#Create new datasets to evaluate Q24, Q25, and Q26
+appHappyNu_q24 <- appHappyNums[,c('q24r1','q24r2','q24r3','q24r4','q24r5','q24r6','q24r7','q24r8','q24r9','q24r10','q24r11','q24r12')]
+appHappyNu_q25 <- appHappyNums[,c('q25r1','q25r2','q25r3','q25r4','q25r5','q25r6','q25r7','q25r8','q25r9','q25r10','q25r11','q25r12')]
+appHappyNu_q26 <- appHappyNums[,c('q26r3','q26r4','q26r5','q26r6','q26r7','q26r8','q26r9','q26r10','q26r11','q26r12','q26r13','q26r14','q26r15','q26r16','q26r17','q26r18')]
+appHappyNu_q24_q25 <- appHappyNums[,c('q24r1','q24r2','q24r3','q24r4','q24r5','q24r6','q24r7','q24r8','q24r9','q24r10','q24r11','q24r12','q25r1','q25r2','q25r3','q25r4','q25r5','q25r6','q25r7','q25r8','q25r9','q25r10','q25r11','q25r12')]
+appHappyNu_q24_q26 <- appHappyNums[,c('q24r1','q24r2','q24r3','q24r4','q24r5','q24r6','q24r7','q24r8','q24r9','q24r10','q24r11','q24r12','q26r3','q26r4','q26r5','q26r6','q26r7','q26r8','q26r9','q26r10','q26r11','q26r12','q26r13','q26r14','q26r15','q26r16','q26r17','q26r18')]
+appHappyNu_q25_q26 <- appHappyNums[,c('q25r1','q25r2','q25r3','q25r4','q25r5','q25r6','q25r7','q25r8','q25r9','q25r10','q25r11','q25r12','q26r3','q26r4','q26r5','q26r6','q26r7','q26r8','q26r9','q26r10','q26r11','q26r12','q26r13','q26r14','q26r15','q26r16','q26r17','q26r18')]
+```
+
+### Distribution Analysis
+
+Create boxplots to find which questions have high variation/low variation, as well as see differences in average response by question type. Also creat the correlation plots comparing each question. 
+
+```{r}
+boxplot(appHappyNu_q24)
+boxplot(appHappyNu_q25)
+boxplot(appHappyNu_q26)
+```
+
+#### Observations
+
+* Evalutaing the boxplots we can see which questions have very little variance compared to the rest of the questions. 
+* Questions that jump out immediately with little variance are q24r2, q24r6, q25r8, q25r11, q26r9, q26r15, and q26r17. These responses were all almost exlusively in agreement to the questions. 
+* From the boxplots we can also see that the majority of questions people agreed with. There are a few that people generally did not agree with, like q24r9, q25r6, q26r11. The rest of the responses seemed to have a pretty good spread of responses across all possibilities. 
+
+### Correlation Analysis
+
+Next we will evaluate the correlation plots to evaluate correlationsions of responses from the same question, and comparing groups of questions. 
+
+```{r}
+# Try correlation plots between each question set first
+M1 <- cor(appHappyNu_q24) # get correlations
+M2 <- cor(appHappyNu_q25) # get correlations
+M3 <- cor(appHappyNu_q26) # get correlations
+
+corrplot(M1, method = "circle") # plot matrix
+corrplot(M2, method = "circle") # plot matrix
+corrplot(M3, method = "circle") # plot matrix
 ```
 
 ```{r}
-cor(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")])
-cor(appHappyNums[,c("q25r1", "q25r2", "q25r3", "q25r4", "q25r5", "q25r6", "q25r7", "q25r8", "q25r9", "q25r10", "q25r11", "q25r12")])
-cor(appHappyNums[,c("q26r3", "q26r4", "q26r5", "q26r6", "q26r7", "q26r8", "q26r9", "q26r10", "q26r11", "q26r12", "q26r13", "q26r14", "q26r15", "q26r16", "q26r17", "q26r18")])
+# Next produce correlation plots to compare question sets
+M4 <- cor(appHappyNu_q24_q25) # get correlations
+M5 <- cor(appHappyNu_q24_q26) # get correlations
+M6 <- cor(appHappyNu_q25_q26) # get correlations
+
+corrplot(M4, method = "circle") # plot matrix
+corrplot(M5, method = "circle") # plot matrix
+corrplot(M6, method = "circle") # plot matrix
 ```
 
-q26r11 demonstrates the most amount of variance, whereas other variables demonstrate less
+#### Observations
 
-#### K Means clustering method using NBClust
+* Within Q24, r9 and r4 were most strongly positively correlated with one another, while most other items generally had smaller, yet still positive correlations with one another. Q12 seemed to have the most possitive correlations with several other questions. 
+* Within Q25, all items except r6 and r12 were strongly positively correlated with one another.
+* Within Q26, all items were positively correlated with one another, with r7 and r18 most strongly positively correlated with one another.
+
+> Comparing the individual responses on Q24, 25, and 26, we see that the correlations within each questions responses are stronger than 
+
+### K-means Cluster Analysis
+
+Next we are going to perform a k-means clustering analysis. First we need to find out the ideal number of clusters to use for the K-Means Cluster. We decided to use two methods, the `elbow method` and `NBClust` to determine what the optimal number of clusters are. 
+
+#### Elbow Method
 
 ```{r, warning=F}
-NbClust(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")], min.nc = 2, max.nc = 12, method = "kmeans", index = "gap")
+# Perform the 'elbow method' to determine the optimal number of clusters. Want to look for the elbow or knee of the graph (where the curve flattens out). 
+wss <- function(k){
+                  kmeans(appHappyNu_q24,k,nstart=10)$tot.withinss
+                  }
+
+kRange <- 1:12
+wssValues <- unlist(lapply(kRange, wss))
+wssValues
+
+# plot where x-axis is kRange and y-axis is wssValues
+plot(x=kRange,y=wssValues)
 ```
+* Elbow appears to be at `3`
+
+#### NBClust Method
+
+```{r, warning=FALSE}
+# K Means clustering method using NBClust
+numClusts <- NbClust(appHappyNu_q24, min.nc = 2, max.nc = 12, method = "kmeans", index = "gap")
+numClusts$Best.nc
+```
+
+* NBClust method recommended using 2 clusters. 
+
+> We decided to proceed and use 3 clusters. 
+
+### Create Clusters
 
 ```{r, warning=F}
-km2 <- kmeans(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")], 2)
-km2
+#Set the seed to be able to have others get the same results as us using a random process
+set.seed(123)
+clusters <- kmeans(appHappyNu_q24,3,nstart=15)
 ```
 
 ```{r}
-names(km2)
+#let us find the number of records assigned to each cluster
+clusters$size
 ```
 
-```{r}
-km2clusters <- by(appHappyNums, km2$cluster, summary)
-names(km2clusters)
-```
-
-```{r}
-plot(appHappyNums[,c("q24r1", "q24r2", "q24r3", "q24r4", "q24r5", "q24r6", "q24r7", "q24r8", "q24r9", "q24r10", "q24r11", "q24r12")], col=km2clusters)
-```
+First we graph out the clusters to get a visual representation. 
 
 ```{r, warning=F}
-points(km2clusters, col=1:3, pch=8)
+#Better visualization of the clusters
+clusplot(appHappyNu_q24,clus=clusters$cluster,col.p=clusters$cluster)
 ```
 
+Next we'll evaluate the average responses for each cluster. 
+```{r, warning=F}
+#let us find the cluster centers
+clusters$centers
+```
+
+Looking at the cluster centers helps us distinguish the different viewpoints of each cluster/group. Comparing how each cluster responded on allows us to profile each cluster to see their differences. Here are the profiles of each cluster: 
+* Cluster 1 - Tech Savvy Group, focus on important technological developments. They feel that there's too much technology or information today, focus on just the important technology. Best to market them then new and important technologies. 
+* Cluster 2 - Tech Users Group, doesn't keep up on important technological developments as much as cluster 1. They use technology in all forms and want all the technology that can be produced. Best to market older revamped technologies. 
+* Cluster 3 - Not Tech Savvy Group, this cluster feels less confident about using technology and it is not as big of a part of their life as cluster 2 and 3. Probably not the best group to market new technologies to, but rather the easily adoptable technologies. 
+
+### Cluster Evaluation
+
+Last we'll take a look at each cluster to see if any cluster has an unequal amount of gender, race, income, etc. 
+```{r, warning=F}
+#Compare the clusters to some of the identifying data attributes to determine if there is an unequal proportion of a certain variable in any single cluster. 
+clusters$size
+
+table(appHappyNums$q48,clusters$cluster)
+table(appHappyNums$q49,clusters$cluster)
+table(appHappyNums$q54,clusters$cluster)
+table(appHappyNums$q55,clusters$cluster)
+table(appHappyNums$q56,clusters$cluster)
+table(appHappyNums$q57,clusters$cluster)
+```
+
+Our observations:
+* The disproportions that jump out are cluster #2 has an unequal proportion of White respondants, with very few Asian respondents. Cluster #2 seems to be the least diverse cluster with the fewest Hispanic respondents despite being the largest cluster in terms of size. 
+* Cluster #1 has about half the respondants of people making $150K or more than the other two groups do. 
+* Cluster #2 appears to be heavily weighted female, while the other two clusters are more balanced. 
+
+### Conclusion: 
+
+This cluster analysis allows us to target specific users for the new app. Specifically by coming up with a profile, we learn what is important to each cluster/group. 
+
+For the purposes of marketing this new app, App Happy should likely focus its efforts on cluster #2, as those people will buy in quickly and use it often. However, they will need to convince those people why they need to keep using their app instead of adopting other technologies. 
+
+As a secondary market strategy, they can also target cluster #1 with a different focus on why this new app is different and ground breaking. Try convincing this group why this tech is different and they will buy in if the argument is sound enough. 
 
 ### Part 3: Probability of Using Only Free Apps
 

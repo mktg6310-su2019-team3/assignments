@@ -1,0 +1,149 @@
+---
+title: "CBC to Win the Tablet Wars"
+author: "Assignment Team 3: Tianyu Xu, Sakshi Vig, Justin Peterson, Richard Mohlman, Steve Lucero, Kris Clegg"
+subtitle: 'MKTG6310-090 Su2019 Assignment 3'
+output:
+  html_notebook:
+    toc: yes
+  word_document:
+    toc: no
+  pdf_document:
+    toc: no
+  html_document:
+    toc: no
+---
+
+```{r packages, message=FALSE, include=FALSE}
+
+# install.packages("tidyverse")
+# install.packages("caret")
+# install.packages("dummies")
+# install.packages("bayesm")
+```
+
+## R Setup 
+
+In the course of our analysis we leveraged the following R packages and libraries:
+
+```{r libraries, message=FALSE}
+library(tidyverse)
+# library(caret)
+library(dummies)
+library(bayesm)
+```
+
+```{r data and functions}
+load('efCode.RData')
+load('stc-cbc-respondents-v6.RData')
+xdata <- read.csv('stc-dc-task-cbc-v6.csv')
+```
+
+
+## Assignment Deliverables
+
+## Part 1
+
+1. Read the respondent data and the choice task information into R, and configure it so that you can estimate HB MNL regression models using the `rhierMnlDP` function in the R package `bayesm`.  
+
+### Building Inputs for rhierMnlDP() function
+
+```{r warning=FALSE}
+# build Xmatrix
+xmat <- efcode.attmat.f(as.matrix(xdata[3:7]))
+priceCentered <- xdata$price-mean(xdata$price)
+brandXprice <- xmat[,c(9:11)]*priceCentered
+Xmatrix <- cbind(xmat,brandXprice)
+
+# build lgtdata
+ymat <- as.matrix(resp.data.v5mod[,c(3:38)])
+cat('ymat dimensions:',dim(ymat)) #`ymat` should be 360 by 36
+cat('\nymat class:',class(ymat),'\n')
+lgtdata <- NULL  # placeholder
+  for (i in 1:dim(ymat)[1]){
+    lgtdata[[i]] <- list(y=ymat[i,], X=Xmatrix)
+  }
+cat('\nlgtdata length:',length(lgtdata)) #length of `lgtdata` should be 360
+cat('\nlgtdata class:',class(lgtdata),'\n')
+
+# build coviariates (Z)
+z1 <- ifelse(!is.na(resp.data.v5mod$STCowner),1,0)
+z2 <- resp.data.v5mod$Gen-1
+zowner <- z1-mean(z1)  #centering
+gender <- z2-mean(z2)  #centering
+Z <- cbind(zowner,gender)
+cat('\nZ dimensions:',dim(Z)) #`Z` should be a matrix that's 360 by 2
+cat('\nZ class:',class(Z),'\n')
+```
+
+```{r}
+# build input data
+Data1 <- list(p=3,lgtdata=lgtdata,Z=Z)
+
+# set mcmc-specs (rhierMnlDP function parameters)
+R <- 5000
+keep <- 10
+Mcmc1=list(R=R,keep=keep)
+```
+
+### Running rhierMnlDP() function
+
+Documentation: https://www.rdocumentation.org/packages/bayesm/versions/3.0-2/topics/rhierMnlDP
+
+```{r warning=FALSE}
+# HBMnl1 <- rhierMnlDP(Data=Data1,Mcmc=Mcmc1)
+# HBMnl1.betadraw <- HBMnl1$betadraw
+# HBMnl1.Deltadraw <- HBMnl1$Deltadraw
+# save(HBMnl1,HBMnl1.betadraw,HBMnl1.Deltadraw, file="HBMnl1.output.RData")
+```
+
+```{r}
+load('HBMnl1.output.RData')
+```
+
+`betadraw` is a three dimensional array of the samples of the regression coefficients, the $\beta$'s, for the effects coded levels of the choice task's attribute levels.  There should be 14 of them.  (Know why?).The rows are respondents, the columns are the $\beta$ estimates, and the "blocks" (dimension 3) are the draws from the $\beta$s' posterior distributions.
+```{r}
+dim(HBMnl1.betadraw)
+```
+
+`deltadraw` is a two dimensional array of samples of the coefficients from regressing the $\beta$'s on the columns of the matrix Z, which are the demopgraphic covariates.  Let's call these regression coefficients "$\psi$'s". `deltadraw` should be as many rows as the number of thinned sampler draws you saved, and a column for the $\psi$ from regressing each $\beta$ on a covariate (column) in the Z matrix.  So, for example, if there are 14 $\beta$'s, the first 14 columns in `deltadraw` are the $\psi$'s from regressing each of the 14 $\beta$s on the first variable in Z.  Then the next 14 columns are the $\psi$'s from regressing the $\beta$S on the next variable (column) in Z, and so on.
+```{r}
+dim(HBMnl1.Deltadraw)
+```
+
+### Picking the burn-in
+
+You'll need to decide how many initial sampler iterations to discard. 
+You'll need to select the "post-burn-in" values in `betadraw` and `deltadraw` to analyze. 
+In `deltadraw`, the samples are in the rows.  
+In `betadraw`, they are in the blocks or in the third dimension of the `betadraw` array.
+
+## Part 2-8
+2. Estimate your models using Markov Chain Monte Carlo (MCMC) simulation.  Your models will provide respondent level estimates of the effects of attribute levels on choices. These will be regression coefficient estimates.  One of your models will also estimate the effects of having owned an STC product and of respondent gender.
+3. Describe how you would go about assessing your models' fit using the data. What results would you generate and assess to do this?
+4. Describe how you would calculate attribute level partworths for Obee's respondents using your model results. Your description should be detailed enough for a programmer unfamiliar with conjoint measurement to correctly code the calculations.
+5. Interpret your model results in regard to the attributes' effects on respondents' stated preferences.  
+6. Answer Obee's question about whether price sensitivity varies over brands.
+7. Assess what impact, if any, gender or ownership of a STC product has on the effects of attributes on preferences.
+8. Using your HB model results, predict choices and estimate preference shares for the alternatives in each of Obee's four additional scenarios.
+     
+## Additional Instructions
+
+In your report for this assignment, be sure to address each of the above items.  
+
+Include in your report:
+
+1. Descriptions of how you prepared your data for modelling, and your modelling procedure.
+2. Any factors or limitations that Obee and STC should consider in using your results to decide what tablet to produce.
+3. What tablet do you think STC should go to market with?
+4. Any important qualifications regarding your recommendation?
+
+* For deliverable 2., above, estimate using two (2) MNL models:
+    + One that includes a covariate indicating previous ownership of a STC product and a covariate for respondent gender
+    + And one without these covariates.
+    + (Note:  These covariates should be covariates of your regression coefficients.)
+* How do the results compare?
+* Is either covariate an important predictor?
+
+Your report should be in an R markdown Notebook.  You should export from it a pdf file.  Both your Notebook and your pdf file should be complete, reproducible marketing data science work products.  Thing in it should be well explained, and the code you include should be complete and syntactically correct.  Your work products for this assignment should be sufficient for others to reproduce and verify your results.
+
+Your pdf file should be _no more than eight (18) pages in length.  Pages beyond 18 will not be graded.

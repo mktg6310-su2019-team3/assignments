@@ -28,6 +28,7 @@ This chunk makes the default directory for a markdown or notebook the same as fo
 Libraries:
 
 ```{r libraries}
+# install.packages("bayesm")
 library(bayesm)
 ```
 
@@ -59,7 +60,7 @@ If you review the `rhierMnlDP` documentation, you'll see that you need to provid
 The data:
 
 ```{r data-specs}
-Data1=list(p=3, lgtdata=lgtdata,Z=Z)
+Data1=list(p=3,lgtdata=lgtdata,Z=Z)
 ```
 
 Above, p is the number of alternatives in the CBD choice sets, lgtdata is the list of lists (see the starter I Notebook for Assignment 3), and Z is a matrix of covariates (see the starter I Notebook).

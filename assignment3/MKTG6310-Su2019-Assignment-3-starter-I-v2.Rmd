@@ -134,8 +134,8 @@ Here's how you can build `lgtdata`:
 nsubs <- dim(ymat)[1] # number of subjects
 lgtdata <- NULL  # placeholder
 for (i in 1:nsubs){
-  lgtdata[[i]] <- list(y <- ymat[i,], X=Xmatrix)
-}
+  lgtdata[[i]] <- list(y=ymat[i,],X=Xmatrix)
+  }
 length(lgtdata)
 lgtdata[1]
 ```

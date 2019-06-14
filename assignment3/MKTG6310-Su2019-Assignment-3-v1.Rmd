@@ -1,0 +1,87 @@
+---
+title: 'MKTG6310-090 Su2019 Assignment 3 CBC to Win the Tablet Wars v1'
+author: "Lynd Bacon, lynd.bacon@hsc.utah.edu"
+output:
+  html_notebook:
+    toc: yes
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: no
+---
+
+Creative Commons CC by 4.0 Lynd Bacon & Associates, Ltd.  Not warranteed to be suitable for any particular purpose. (You're on your own!)
+
+---
+
+_Ready everything that follows **carefully**_. 
+
+**Set Ups?**
+
+This chunk makes the default directory for a markdown or notebook the same as for the project directory that either one is in.  You may or may not need it, depending on whether you are going to execute anything from this markdown document.
+```{r setup} 
+#
+# knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+# 
+```
+
+## Starful Enters the Tablet Wars!
+
+Starful Technologies Company (STC) has been in the business of manufacturing remote controllers for televisions and audio systems for two decades. It is now planning on entering the computer tablet market with a new product which they hope to have ready to launch in Q2 of 2016.  (They'd better hurry, eh?)  They have the technical expertise and the productional capability to produce and distribute various tablet configurations, but they'd prefer to go to market with just one, the one that is most preferred in their target market.
+
+Obee Juan, Starful's product development manager, has done qualitative research to better understand the attributes that impact tablet preferences in the market of interest.  He has narrowed them down to what he believes are the four most important:  retail unit price, screen size, processor speed, and RAM.   His qualitative results suggest that brand is also important to purchase consideration.  STC is a recognized consumer brand, but it is not known as a mobile computing manufacturer.
+
+Obee's next step was to commission quantitative survey research that included a choice-based conjoint (CBC) task, a kind of a discrete choice experiment(DCE).  He engaged the services of NeverMind Marketing Insights, a global marketing research services provider, to obtain a sample of tablet owners and likely buyers, to program and host an online questionnaire, and to deliver a data set of results.  Obee and NeverMind believe that their sample is sufficiently representative of the market that STC wants to enter with its tablet. 
+
+## The Choice-Based Conjoint Task
+
+NeverMind and Obee designed and administered in their questionnaire a CBC task with the following five attributes:
+
+_Brand_-  4 levels: STC, Somesong, Pear, Gaggle (level codes: 0,1,2,3)  
+_Price_- 3 levels: $199, $299, $399 (levels: 0,1,2)  
+_Screen_- 3 levels: 5 inch, 7 inch, 10 inch (levels: 0,1,2)  
+_RAM_- 3 levels: 8 Gb, 16 Gb, 32 Gb (Gb = “gigabytes”) (levels: 0,1,2)  
+_Processor_- 3 levels: 1.5 GHz, 2 GHz, 2.5 GHz (GHz = “gigahertz”)  (levels: 0,1,2)
+
+The task was designed to allow estimation of the two-way interaction between brand and price.  It has 36 choice sets.  Each choice set presented three alternatives, each described as specific combinations of attribute levels.  Respondents picked from each choice set the alternative they most preferred, Alternative 1, 2, or 3.
+
+## The Data
+
+You will find Obee's respondent data in the R data file stc-cbc-respondents-v6.RData.     
+
+The file stc-v6-datamap.txt documents the variables in the R respondent data file.  The file stb-dc-task-cbc-v6.csv provides the choice task plan.  The attribute levels are coded as indicated above in parentheses for each of the attributes.
+
+## What Obee Wants and Needs From You
+
+Obee wants you to estimate preference shares for each of four (4) different choice scenarios that are not part of the choice task.  A description of the alternatives in these four scenarios are in the file stc-extra-scenarios-v6.csv.
+
+Obee needs you to analyze his choice data and interpret your results.  You'll fit Hierarchical Bayes (HB) Multinomial Logit (MNL) models that allow for the price sensitivity of respondent choices to be brand specific.  You'll also examine the possible effects of prior STC product ownership and respondent gender on the attributes' contributions to preferences.
+
+## Assignment Deliverable Specifications
+
+For this assignment you will do the following:
+
+1. Read the respondent data and the choice task information into R, and configure it so that you can estimate  HB MNL regression models using the `rhierMnlDP` function in the R package `bayesm`.  
+2. Estimate your models using Markov Chain Monte Carlo (MCMC) simulation.  Your models will provide respondent level estimates of the effects of attribute levels on choices. These will be regression coefficient estimates.  One of your models will also estimate the effects of having owned an STC product and of respondent gender.
+3. Describe how you would go about assessing your models' fit using the data. What results would you generate and assess to do this?
+4. Describe how you would calculate attribute level partworths for Obee's respondents using your model results. Your description should be detailed enough for a programmer unfamiliar with conjoint measurement to correctly code the calculations.
+5. Interpret your model results in regard to the attributes' effects on respondents' stated preferences.  
+6. Answer Obee's question about whether price sensitivity varies over brands.
+7. Assess what impact, if any, gender or ownership of a STC product has on the effects of attributes on preferences.
+8. Using your HB model results, predict choices and estimate preference shares for the alternatives in each of Obee's four additional scenarios.
+     
+In your report for this assignment, be sure to address each of the above items.  Include in your report descriptions of how you prepared your data for modelling, and your modelling procedure.  Include any factors or limitations that Obee and STC should consider in using your results to decide what tablet to produce.  What tablet do you think STC should go to market with? Any important qualifications regarding your recommendation?
+
+*Do item 2., above, by estimating two (2) MNL models, one that includes a covariate indicating previous ownership of a STC product and a covariate for respondent gender, and one without these covariates.  (Note:  These covariates should be covariates of your regression coefficients.) How do the results compare?  Is either covariate an important predictor?
+
+Your report should be in an R markdown Notebook.  You should export from it a pdf file.  Both your Notebook and your pdf file should be complete, reproducible marketing data science work products.  Thing in it should be well explained, and the code you include should be complete and syntactically correct.  Your work products for this assignment should be sufficient for others to reproduce and verify your results.
+
+Your pdf file should be _no more than eight (18) pages in length.  Pages beyond 18 will not be graded.
+
+## Supplmentary Materials for This Assignment
+
+They will be in the GitHub subdirectory for Assignment 3, along with this assignment description Notebook.
+
+
+
+

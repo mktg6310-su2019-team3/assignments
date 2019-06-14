@@ -1,0 +1,161 @@
+---
+title: 'MKTG6310-090 Su2019 Assignment 3 Starter I v1'
+author: "Lynd Bacon, lynd.bacon@hsc.utah.edu"
+output:
+  html_notebook:
+    toc: yes
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: no
+---
+
+
+Creative Commons CC by 4.0 Lynd Bacon & Associates, Ltd.  Not warranteed to be suitable for any particular purpose. (You're on your own!)
+
+---
+
+_Ready everything that follows **carefully**_. 
+
+**Set Ups?**
+
+This chunk makes the default directory for a markdown or notebook the same as for the project directory that either one is in.  You may or may not need it, depending on whether you are going to execute anything from this markdown document.
+```{r setup} 
+#
+# knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+# 
+```
+
+## What's Here
+
+What follows provides some guidance on working with, and getting started on analyzing, the data for this assignment.  This assignment involves a certain amount of data manipulation and munging. 
+
+## The Data Files
+
+The data files include:
+
+* `stc-cbc-respondents-v6.RData` - an R RData file that contains a data.frame called `resp.data.v5mod`.  This data frame has choice data in it from 360 respondents.  The 
+* `stc-v6-datamap.txt` - This is a text file that describes the respondent data, a data dictionary for the data.  
+* `stc-dc-task-cbc-v6.csv` - A headered csv file that describes the choice sets that the respondents answered.  The attribute levels of the choice alternatives are coded with integers corresponding to how the attributes are defined in the assignment description.  Note that in this file, the choice sets and the alternatives in them are stacked one upon the other.  There are 36 choice sets, and each choice set has three alternatives for respondents to choose from. The first column in this file indicates the choice set, and the second the alternative (1,2, or 3) in the alternative in a choice set.  So, for example, choise.set = 10, choice.ID = 2 indicates the second choice alternative in the 10th choice set.
+* `stc-extra-scenarios-v6.csv` A csv file that defines four (4) extra choice scenarios that Obee wants you to analyze. (See the assignment description.)
+
+## R Scripts for Creating an X Matrix
+
+For this assignment you're going to do your HB MCMC modeling using a function in the `bayesm` packages that's called `rhierMnlDP`.  This function, like many others in R, has its own peculiar preferences for the kind of data it can ingest. 
+
+To "beat the data into usable shape," i.e., to prepare it for analysis, You need to do the following:
+
+1. Create the design, or X, matrix that you'll use to predict respondents' choices in the 36 choice sets.  What you need to do is to _effects code_ the attribute levels of the choice alternatives, and then create _interaction terms_ between brand and price.  You'll use just the _linear_ contrast component of the price variable when you create these interaction terms.  (Price has three levels in this design, and so it can be expressed as a linear contrast and a quadratic component, price and price$^{2}$.)
+
+2. Create a "list of lists," in which each element in the list contains the responses for a single respondent to the 36 choice sets, and the X matrix.
+
+### Effects Coded Main Effects in the X Matrix
+
+There are various ways you can do the effects coding to create your X Matrix. But an "easy" way to get started is to use the two R scripts in the RData file efCode.RData.  There are two, `efcode.attmat.f`, and `efcode.att.f`.  This latter script will create effects codes from a vector of integer values.  For example, if you provide it with a vector with 1's, 2's,and 3's, it will return a matrix with two columns coded, for example, like 1 -> -1,-1, 2-> 1,0, and 3-> 0.1. Here, a 1 one would be referred to as the "reference level" for this coding.  Whichever is used for the reference is a matter of choice.
+
+The other script, `efcode.attmat.f`, accepts as input a _matrix_ of integer valued columns.  It passes the columns one at a time to `efcode.att.f`, and creates a matrix from the effects coded columns returned to it from `efcode.attmat.f`.  The result is an effects coded version of the input _matrix_`.
+
+```{r}
+# install.packages("dummies")
+library(dummies)
+load('efCode.RData')
+load('stc-cbc-respondents-v6.RData')
+xdata <- read.csv('stc-dc-task-cbc-v6.csv')
+names(xdata[3:7])
+```
+
+Let's assume that you read the data in `stc-dc-task-cbc-v6.csv` into a data.frame called `xdata`.  
+
+The last five columns in`xdata` are what you want to effects code. Then as a first step to get the X matrix you need, you could do:
+
+For the above to work, you need to load the `dummies` package as a library.
+
+This may generate some warning messages from the `model.matrix` function.  Even so the result should be usable, but be sure to check it out carefully.  
+
+`xmat` should have 108 rows, and 11 columns.  It should be a matrix. 
+
+```{r warning=FALSE}
+xmat <- efcode.attmat.f(as.matrix(xdata[3:7]))
+xmat
+```
+
+In `xmat` there will be one less column for each attribute than the number of levels it has. For example, The first two columns in `xmat` reflect the effects coded levels of _screen size_.  The reference level is 5 in.  It's coded as -1, -1 in the first two columns of `xmat.` (You can verify this by examining `efcode.att.f`.)
+
+All attributes in the choice design have three levels except _brand_.  It has four levels, and the corresponding effects codings are in the last three columns of `xmat`.  
+
+### Interaction Terms in the X Matrix
+
+So far in `xmat` you should have effects coded versions of the five choice attributes.  Next you need to create the required interaction terms. These terms are the product of the price attribute's linear component and the effected coded brand variables.  The price attribute has levels $199, $299, and $399, coded 0, 1 and 2, respectively. We'going to multiply each of the last three columns in `xmat` by this vector to get three price by brand interaction terms. It's a common econometric practice to _center_ a variable like price before using it to create interaction terms.  The main reason is that better numerical results are obtaine.
+
+You can center the price variable like:
+
+```{r eval=FALSE}
+priceCentered <- xdata$price-mean(xdata$price)
+priceCentered
+```
+
+To get the interaction terms you need, you can do:
+
+```{r eval=FALSE}
+brandXprice <- xmat[,c(9:11)]*priceCentered
+brandXprice
+```
+
+`brandXprice` should be 108 X 3.  Note that the above is not _matrix_ multiplication.  What's happening is that the _inner products of the centered price vector and each of the brand effects coded columns are computed.
+
+### Putting the X Matrix Together
+
+Next we want to combine `xmat` and `brandXprice` horizontally to get a matrix that's 108 X 14.
+
+```{r eval=FALSE}
+Xmatrix <- cbind(xmat,brandXprice)
+Xmatrix
+```
+
+Check the dimensions of the `Xmatrix`, and examine what's in it. 
+
+## Building the List of Lists
+
+Next, you need to build a "list of lists" that we'll call `lgtdata`.  There will be a list in the list for each respondent, and in each respondent's list will be a vector, `y`, of their choice respondents, and the matrix `Xmatrix`, which contains the effects coded predictor variables representing the choice design's choice alternatives.
+
+The respondents' choices are in the columns CS1 through CS36 in the data.frame `resp.data.v5mod`.  We can get them out into a matrix:
+
+```{r eval=FALSE}
+ymat <- as.matrix(resp.data.v5mod[,c(3:38)])
+str(ymat)
+dim(ymat)[1]
+```
+
+`ymat` should be 360 by 36.  Each row is a respondent's 36 choices, labelled as 1, 2 or 3.
+
+Here's how you can build `lgtdata`:
+
+```{r eval=FALSE}
+nsubs <- dim(ymat)[1] # number of subjects
+lgtdata <- NULL  # placeholder
+for (i in 1:nsubs){
+  lgtdata[[i]] <- list(y <- ymat[i,], X=Xmatrix)
+}
+length(lgtdata)
+lgtdata[1]
+```
+
+The length of `lgtdata` should be 360.  Examine a couple of the elements of `lgtdata` to see if respondents' choices, `y`, are there, and also `X`, the matrix `Xmatrix`.
+
+### Covariates
+
+Obee wants to know if the utilities of respondents depend either ownership of an STC product, or on their gender.  We need to create a matrix with columns in it for STC ownership and gender.  Here's a way that might work for you:
+
+```{r eval=FALSE}
+z1 <- ifelse(!is.na(resp.data.v5mod$STCowner),1,0)
+z2 <- resp.data.v5mod$Gen-1
+zowner <- z1-mean(z1)  #centering
+gender <- z2-mean(z2)  #centering, too
+Z <- cbind(zowner,gender)
+dim(Z)
+```
+
+`Z` should be a matrix that's 360 by 2.
+
+If all of the above is copaceutic, then you should be good to go to start some HB choice modeling.
+

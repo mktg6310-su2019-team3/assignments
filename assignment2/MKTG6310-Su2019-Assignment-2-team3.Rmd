@@ -1,8 +1,10 @@
 ---
-title: 'Segmenting for a Social Entertainment App'
+title: "Segmenting for a Social Entertainment App"
+author: "Assignment Team 3: Tianyu Xu, Sakshi Vig, Justin Peterson, Richard Mohlman, Steve Lucero, Kris Clegg"
 subtitle: 'MKTG6310-090 Su2019 Assignment 2'
-author: 'Assignment Team 3: Tianyu Xu, Sakshi Vig, Justin Peterson, Richard Mohlman, Steve Lucero, Kris Clegg'
 output:
+  word_document:
+    toc: no
   html_notebook:
     toc: yes
   pdf_document:
@@ -22,10 +24,13 @@ output:
 # install.packages("corrplot")
 # install.packages("mclust")
 # install.packages("flexmix")
+# install.packages("InformationValue")
 
 library(devtools)
 # devtools::install_url("http://cran.r-project.org/src/contrib/rmarkdown_1.13.tar.gz")
 library(rmarkdown)
+
+knitr::opts_chunk$set(fig.width=6, fig.height=4)
 ```
 
 ## R Setup 
@@ -42,6 +47,7 @@ library(corrplot)
 library(cluster)
 library(mclust)
 library(flexmix)
+library(InformationValue)
 ```
 
 ## The App Happy Challenge
@@ -55,7 +61,7 @@ Below we will perform a number of market segmentation analyses to explore this p
 
 Additionally, to help App Happy better understand which respondents are using only free apps, we will build a model to predict whether new customers will only use free apps based on demographic variables.
 
-## Part 1: Load the Data, Munge It, Do Some EDA
+## Part 1: Exploratory Data Analysis
 
 App Happy hired the Consumer Spy Corporation (CSC) to survey consumers in the entertainment app market. CSC collected data from a sample of consumers, and provided App Happy with a dataset of their responses. The survey questionnaire was based on preliminary qualitative research that included focus groups and one-on-one interviews.  The data collected by CSC are the base data we use to complete the below analyses.
 
@@ -63,18 +69,6 @@ App Happy hired the Consumer Spy Corporation (CSC) to survey consumers in the en
 load("./appHappyData-2019.RData")
 appHappyLabs <- apphappy.4.labs.frame
 appHappyNums <- apphappy.4.num.frame
-```
-
-### Samples of raw Survey Data collected by CSC
-
-```{r}
-head(appHappyLabs)
-head(appHappyNums)
-```
-
-```{r}
-cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
-cat('Number of variables (columns):', ncol(appHappyNums), '\n')
 ```
 
 ### Recoding Likert Responses 
@@ -138,11 +132,18 @@ appHappyNums$q26r18 <- recode(appHappyNums$q26r18, "1=6; 2=5; 3=4; 4=3; 5=2; 6=1
 
 ### Dealing with NAs
 
+Calculating the number of records/columns prior to cleaning NAs.
+
 ```{r}
-cat('Count of NAs by column:')
+cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
+cat('Number of variables (columns):', ncol(appHappyNums), '\n')
+```
+
+Determining how many NAs exist.
+
+```{r}
+cat('Count of NAs by column:\n')
 naCounts <- appHappyNums %>% is.na %>% colSums
-# naCounts
-# cat('\n')
 naCounts[naCounts>0]
 ```
 
@@ -152,19 +153,17 @@ naCounts[naCounts>0]
 appHappyNums <- appHappyNums[!is.na(appHappyNums$q12),]
 ```
 
-Confirming q12 NAs have been removed
+Confirming q12 NAs have been removed:
 
-```{r, echo=False}
+```{r}
 cat('Count of NAs by column:\n')
 naCounts <- appHappyNums %>% is.na %>% colSums
-# naCounts
-# cat('\n')
 naCounts[naCounts>0]
 ```
 
-Confirm number of rows was reduced by number of NAs in q12 and number of columns matches original
+Confirm number of rows was reduced by number of NAs in q12 and number of columns matches original.
 
-```{r, echo=False}
+```{r}
 cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
 cat('Number of variables (columns):', ncol(appHappyNums), '\n')
 ```
@@ -178,22 +177,20 @@ appHappyNumsImp <- appHappyNums %>% dplyr::select(-c(q5r1)) # add all but column
 appHappyNums <- appHappyNums %>% dplyr::select(c(caseID,q5r1)) # save columns w/ NAs for joining back to imputed data
 appHappyNumsImp <- missForest(appHappyNumsImp)$ximp # impute missing data in q57
 appHappyNums <- merge(appHappyNums, appHappyNumsImp, by="caseID") # join data back together
-appHappyNums[, -1] <- lapply(appHappyNums[, -1], as.integer) #casting all non-ID columns to numeric
+appHappyNums[, -1] <- lapply(appHappyNums[, -1], as.integer) #casting all non-ID columns back to numeric (this time integers)
 ```
 
 Confirm q57 NAs are gone
 
-```{r, echo=False}
+```{r}
 cat('Count of NAs by column:\n')
 naCounts <- appHappyNums %>% is.na %>% colSums
-# naCounts
-# cat('\n')
 naCounts[naCounts>0]
 ```
 
 #### Drop Entire q5r1 Column
 
-NAs in q5r1 are expected and are simply respondents that did not select "other" for q4
+NAs in q5r1 are expected and are simply respondents that did not select "other" for q4.
 
 ```{r}
 appHappyNums <- appHappyNums %>% dplyr::select(-c(q5r1))
@@ -201,36 +198,38 @@ appHappyNums <- appHappyNums %>% dplyr::select(-c(q5r1))
 
 Confirm number of rows matches post-q12 NA drop and number of columns is reduced by 1
 
-```{r, echo=False}
+```{r}
 cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
 cat('Number of variables (columns):', ncol(appHappyNums), '\n')
 ```
 
 Confirm no NAs remain
 
-```{r, echo=False}
+```{r}
 cat('Count of NAs by column:\n')
 naCounts <- appHappyNums %>% is.na %>% colSums
-# naCounts
-# cat('\n')
 naCounts[naCounts>0]
 ```
 
 ### Dependant Variable Creation
 
+Creating a new variable to use to predict whether individuals are likely to only use free apps.
+
 ```{r}
 appHappyNums$onlyFreeApps <- as.numeric(appHappyNums$q12==6)
-unique(appHappyNums$onlyFreeApps) # confirm new binary variable generated
+table(appHappyNums$q12, appHappyNums$onlyFreeApps) # confirm new binary variable generated
 ```
 
 Confirm number of columns is increased by 1
 
-```{r, echo=False}
+```{r}
 cat('Number of records (rows, observations):', nrow(appHappyNums), '\n')
 cat('Number of variables (columns):', ncol(appHappyNums), '\n')
 ```
 
 ### Train/Test Split of the Data (80/20)
+
+Splitting the data for onlyFreeApps model training and testing.
 
 ```{r}
 set.seed(123)
@@ -238,7 +237,7 @@ appHappyNumsTrain <- appHappyNums %>% dplyr::sample_frac(.8)
 appHappyNumsTest  <- dplyr::anti_join(appHappyNums, appHappyNumsTrain, by = 'caseID')
 ```
 
-```{r, echo=False}
+```{r}
 cat('Number of rows in train dataframe:   ',nrow(appHappyNumsTrain),'\n')
 cat('Number of rows in test dataframe:     ',nrow(appHappyNumsTest),'\n')
 cat('Number of rows in original dataframe:',nrow(appHappyNums))
@@ -260,12 +259,10 @@ appHappyNu_q25_q26 <- appHappyNums[,c('q25r1','q25r2','q25r3','q25r4','q25r5','q
 
 ### Distribution Analysis
 
-Create boxplots to find which questions have high variation/low variation, as well as see differences in average response by question type. Also creat the correlation plots comparing each question. 
+Create boxplots to find which questions have high variation/low variation, as well as see differences in average response by question type. Also create the correlation plots comparing each question. We	have a	plot	for	q24	to	provide	a	different	view	of	our	distribution	analysis.
 
-```{r}
+```{r, out.width = '60%'}
 boxplot(appHappyNu_q24, col=rainbow(length(unique(appHappyNu_q24))))
-boxplot(appHappyNu_q25, col=rainbow(length(unique(appHappyNu_q25))))
-boxplot(appHappyNu_q26, col=rainbow(length(unique(appHappyNu_q26))))
 ```
 
 #### Boxplot Observations
@@ -286,25 +283,13 @@ M2 <- cor(appHappyNu_q25) # get correlations
 M3 <- cor(appHappyNu_q26) # get correlations
 ```
 
-```{r}
+```{r, out.width = '50%'}
 corrplot(M1, method = "circle") # plot matrix
 corrplot(M2, method = "circle") # plot matrix
 corrplot(M3, method = "circle") # plot matrix
 ```
 
-Next, we evaluate correlations across question sets:
-
-```{r}
-M4 <- cor(appHappyNu_q24_q25) # get correlations
-M5 <- cor(appHappyNu_q24_q26) # get correlations
-M6 <- cor(appHappyNu_q25_q26) # get correlations
-```
-
-```{r}
-corrplot(M4, method = "circle") # plot matrix
-corrplot(M5, method = "circle") # plot matrix
-corrplot(M6, method = "circle") # plot matrix
-```
+We also took a look at the between question correlation matrices to see if any correlation patterns emerged there. We did not find anything significant and found that the between response correlations were stronger. As a result, we did not include those correlation matrices.
 
 #### Observations
 
@@ -444,90 +429,96 @@ We use the demographic variables in the survey data (q1, q48-q53, q55-q57) as pr
 
 ### Binary Logit Regression Model
 
+Building a Binary Logit Regression Model to predict 'onlyFreeApps' value based on demographic data.
+
+#### Predictor Selection
+
 ```{r}
-#Creating the binary logistic regression Model (Taking respondent with only free apps as a function of q1, q48 and q49 (Independent Variables))
-logitModel <- glm(onlyFreeApps ~ q1+q48+q49,
+logitModel <- glm(onlyFreeApps ~ q1+q48+q49+q50r1+q50r2+q50r3+q50r4+q50r5+q55+q56+q57,
                  data=appHappyNumsTrain,
-                 family=binomial(link=logit)) 
+                 family=binomial(link=logit))
 summary(logitModel)
 ```
 
 ```{r}
-#Predict Model using logit Model
-lModelPreds <- predict(logitModel,
-                      newdata=appHappyNumsTest,
-                      type="response") 
-summary(lModelPreds)
+logitModel <- glm(onlyFreeApps ~ q48+q55+q56+q57,
+                 data=appHappyNumsTrain,
+                 family=binomial(link=logit))
+summary(logitModel)
 ```
 
-```{r}
-# Predictive Accuracy of the Logit Model
-lPreds <- as.numeric(lModelPreds>=0.5) 
-table(lPreds) 
+Standard p-value threshold for statistical significance is .05, therefore, we will build our model using only predictors that meet that threshold: q48, q55, q56 & q57.
 
+Additionally, the smaller the AIC value, the better the fit of a model and general consensus is that movement in AIC of 5+ points is meaningful. We are able to reduce the AIC for a model with all predictors from 1330.8 to 1319.9 in a model with only 4 predictors.
+
+#### Predicting on the Training Data Set
+
+For a binary logistic regression, we need to pay close attention to the cutoff value used against the resulting probability output. We leverage the `InformationValue` package to select the optimal cutoff value.
+
+
+```{r}
+logitModelTrainActuals <- appHappyNumsTrain$onlyFreeApps
+logitModelTrainPreds <- predict(logitModel, newdata=appHappyNumsTrain, type="response")
+optCut <- optimalCutoff(logitModelTrainActuals, logitModelTrainPreds, optimiseFor = "misclasserror")
+logitModelTrainPreds <- as.numeric(logitModelTrainPreds>=optCut)
+cat('Optimal Cutoff Value:',optCut)
+```
+
+Predictive Accuracy of the Logit Model on the Training Data:
+```{r}
+table(logitModelTrainPreds)
 cat('\n')
-
-lActuals <- appHappyNumsTest['onlyFreeApps'] 
-table(actuals) 
-
-cat('\nLogit Model Accuracy:',100*sum(lPreds==lActuals,na.rm=TRUE)/length(lPreds))
-```
-
-### Binary Probit Regression Model
-
-```{r}
-#Creating binary Probit Regression Model(Taking respondent with only free apps as a function of q1, q48 and q49 (Independent Variables))
-probitModel=glm(onlyFreeApps~q1+q48+q49,
-                data=appHappyNumsTrain,
-                family=binomial(link=probit)) 
-summary(probitModel)
-```
-
-```{r}
-#Predict Model using probitModel
-pModelPreds=predict(probitModel,
-                   newdata=appHappyNumsTest,
-                   type="response") 
-summary(pModelPreds)
-```
-
-```{r}
-#Predictive accuracy of the Model
-pPreds <- as.numeric(pModelPreds>=0.5) 
-table(pPreds)
-
+table(logitModelTrainActuals)
+cat('\nLogit Model Accuracy:',100*sum(logitModelTrainPreds==logitModelTrainActuals,na.rm=TRUE)/length(logitModelTrainPreds))
 cat('\n')
+confusionMatrix(logitModelTrainActuals,logitModelTrainPreds)
+cat('\nType I Error Rate:',confusionMatrix(logitModelTrainActuals,logitModelTrainPreds)[2,1]/length(logitModelTrainActuals))
+```
 
-pActuals=appHappyNumsTest['onlyFreeApps'] 
-table(pActuals)
+#### Predicting on the Test Data Set
 
-cat('\nProbit Model Accuracy:',100*sum(pPreds==pActuals,na.rm=TRUE)/length(pPreds))
+```{r}
+logitModelTestActuals <- appHappyNumsTest$onlyFreeApps
+logitModelTestPreds <- predict(logitModel, newdata=appHappyNumsTest, type="response")
+logitModelTestPreds <- as.numeric(logitModelTestPreds>=optCut)
+cat('Optimal Cutoff Value:',optCut)
+```
+
+Predictive Accuracy of the Logit Model on the Test Data:
+```{r}
+table(logitModelTestPreds)
+cat('\n')
+table(logitModelTestActuals)
+cat('\nLogit Model Accuracy:',100*sum(logitModelTestPreds==logitModelTestActuals,na.rm=TRUE)/length(logitModelTestPreds))
+cat('\n')
+confusionMatrix(logitModelTestActuals,logitModelTestPreds)
+cat('\nType I Error Rate:',confusionMatrix(logitModelTestActuals,logitModelTestPreds)[2,1]/length(logitModelTestActuals))
 ```
 
 #### Difference between predictive accuracy perecentage of both models
 
-The predictive accuracy percentage for both the models is 78.90%.
+The predictive accuracy percentage for both the training and test data sets is 78.4%. The model appears to have the same predictive accuracy on any data whether its the data the model was trained on or out-of-sample data for the same survey. We also note that the Type I Error rate on both Training and Test data sets is at or near 0%.
 
-The logit and probit models are critical parts of analysing data. We generally use to know that if a covariate has the same effect for different groups, Unfortunately, inorder to compare the effect of covariates across groups, we make an assumption that each group has the same residual variation. In this case we can compare the coefficients to determine which model is better fit but in this case it reveals that there is no significant difference in coefficients hence, no difference between the models.
+Respondents only using free apps are taken as a dependent variable is a function of q48, q55, q56 & q57 as independent variables. This means the relation depends on:
 
-Respondents only using free apps are taken as a dependent variable is a function of q1, q48 and q49 as independent variables. This means the relation depends on: 
-1. Age 
-2. Marital status 
-3. Education. 
+1. (q48) Marital status
+2. (q55) Hispanic Ethnicity
+3. (q56) Household Income
+4. (q57) Gender
 
-For Logit and Probit Model give us the following inferences:
-* As the age increases Usage of free apps will increase.
-* As the education level increases from High school to Post Graduate usage of free app decreases
+Our Logit Model give us the following inferences:
 
->Predictive accuracy in terms of percent correct prediction of responses, for both the **estimation** data and for the **test** data.  (Question: what do differences between the two tell you about your model?).
->Your "best" model should only include: **predictors that are statistically significant** at the conventional level, **a Type I error rate of 0.05**, and whose **accuracy doesn't decrease much (or at all) when it is used to predict `onlyFreeApps` using the held out, 20% test data**.
->Interpret your best model's results for App Happy.  Mention any assumptions that you think might be important to for Appy Happy to consider when interpreting your model's results.
+* Married respondents are less likely to spend on apps
+* Hispanics are less likely to spend on apps
+* As household income increases, respondents are more likely to spend on apps
+* Females are more likely to spend on apps
+
+Important to note that this model was created simply to determine factors that drive spend on apps, not necessarily the quantity of spend (i.e. the industry term known as 'whales' aka high-spenders).
 
 ## Part 4: Post Hoc Predictive Segmentation Analysis
 
 ```{r input-assignment-data}
 appNum <- appHappyNums
-class(appNum)
 dim(appNum)
 ```
 
@@ -564,7 +555,7 @@ fixed=~q24r1 + q24r2 + q24r3 + q24r4 + q24r5 + q24r6 + q24r7 + q24r8 + q24r9 + q
 k = 2, nrep = 3)
 ```
 
-```{r binLogModk1-summary, warning=False}
+```{r binLogModk1-summary}
 summary(refit(binLogModk1))
 ```
 
@@ -578,9 +569,6 @@ According to the results below, one of the segments has 50.01% prior probability
 summary(binLogModk1)
 ```
 
->App Happy wants to know if potential customers differ in terms of how their attitudes predict the likelihood of paying for apps. The question is, are there customer segments that differ in terms of how their attitudes predict whether they pay for apps or not?
->Estimate binary logit finite mixture models to predict 1 minus `onlyFreeApps` to identify the one that best describes the data. Profile these segments, and describe how each segment uniquely differs from the other segments, and what these differences suggest for App Happy's plan to market it's app.
+### Conclusions
 
-### Reproducible Marketing Data Science Assignment Work Product  
-
->Assemble your work in an R Notebook.  Organize your Notebook so that it effectively shows and explains what you did, and what you found, to other persons who might want to replicate your work.  It should exemplify good reproducible data science practice.  Don't exceed **16** (_16_) pages in length in your pdf document.  Staying within this limit may require you to decide what's important to include in your report, and what can be gotten rid of. A design principle is to "keep what's essential, and get rid of the rest."  Include what's important for a reader to understand your story.  Don't be WET ('waste everyone's time') by including content that's unimportant or irrelavant.
+In conclusion. The optimum number of segments the mclust model produces is 2. This is consistent with the flexmix model, so we presume that the accuracy is high. The likelihood and BIC are very low, so the likelihood that this model is close to the truth is high. Because of this we are unable to calculate any differences between segments since all observations are in the same segment.

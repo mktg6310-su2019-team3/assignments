@@ -62,6 +62,8 @@ load('efCode.RData')
 load('stc-cbc-respondents-v6.RData')
 xdata <- read.csv('stc-dc-task-cbc-v6.csv')
 names(xdata[3:7])
+summary(unique(xdata[3:7]))
+str(xdata)
 ```
 
 Let's assume that you read the data in `stc-dc-task-cbc-v6.csv` into a data.frame called `xdata`.  
